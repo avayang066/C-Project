@@ -1,11 +1,11 @@
-version: '3.8'
+# version: '3.8' // 新版不需要指定版本號
 services:
   web:
-    build: .
+    build: . # 這個服務要從哪個地方的 Dockerfile 來建 image
     ports:
       - "8080:80"
   db:
-    image: mcr.microsoft.com/mssql/server:2022-latest
+    image: mcr.microsoft.com/mssql/server:2022-latest # 這個服務要使用哪個現有的 image
     environment:
       SA_PASSWORD: "YourStrong!Passw0rd"
       ACCEPT_EULA: "Y"
