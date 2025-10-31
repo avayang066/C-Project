@@ -1,0 +1,14 @@
+namespace MyApp.Models
+{
+    /// <summary>
+    /// 聊天訊息模型
+    /// </summary>
+    public class ChatMessage
+    {
+        public int Id { get; set; }
+        public string Content { get; set; } = string.Empty;
+        public string Sender { get; set; } = string.Empty; // "User" 或 "AI"
+        public DateTime Timestamp { get; set; }
+        public string? SessionId { get; set; }
+    }
+}

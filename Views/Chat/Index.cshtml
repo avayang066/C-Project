@@ -1,0 +1,138 @@
+@{
+    ViewData["Title"] = "智能聊天助理";
+}
+
+<div class="container mt-4">
+    <h2>智能聊天助理</h2>
+    
+    @if (!ViewBag.ServiceAvailable)
+    {
+        <div class="alert alert-warning" role="alert">
+            <strong>⚠️ 注意：</strong> @ViewBag.ErrorMessage
+        </div>
+    }
+    else
+    {
+        <div class="alert alert-success" role="alert">
+            <strong>✅ 已就緒：</strong> AI 服務正常運行中
+        </div>
+    }
+
+    <div id="chatBox" class="border rounded p-3 mb-3" style="height:400px; overflow-y:auto; background-color: #f8f9fa;">
+        <div class="text-muted">歡迎使用智能聊天助理！請輸入您的問題...</div>
+    </div>
+
+    <div class="input-group">
+        <input type="text" id="userInput" class="form-control" placeholder="輸入您的訊息..." />
+        <button class="btn btn-primary" onclick="sendMessage()" id="sendBtn">
+            <span id="sendBtnText">發送</span>
+            <span id="sendBtnLoading" class="d-none">
+                <span class="spinner-border spinner-border-sm" role="status"></span>
+                處理中...
+            </span>
+        </button>
+    </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.7.1/jquery.min.js"></script>
+<script>
+    let chatHistory = "";
+
+    function sendMessage() {
+        let msg = $("#userInput").val().trim();
+        if (msg === "") {
+            alert("請輸入訊息");
+            return;
+        }
+
+        // 顯示使用者訊息
+        const timestamp = new Date().toLocaleTimeString();
+        $("#chatBox").append(`
+            <div class="mb-2">
+                <div class="d-flex justify-content-end">
+                    <div class="bg-primary text-white rounded p-2 max-width-75">
+                        <strong>您:</strong> ${escapeHtml(msg)}
+                        <br><small class="text-light opacity-75">${timestamp}</small>
+                    </div>
+                </div>
+            </div>
+        `);
+        
+        $("#userInput").val("");
+        setLoading(true);
+
+        // 發送到後端
+        $.post("/Chat/SendMessage", { message: msg, history: chatHistory })
+            .done(function(data) {
+                if (data.success) {
+                    // 顯示 AI 回應
+                    $("#chatBox").append(`
+                        <div class="mb-2">
+                            <div class="d-flex justify-content-start">
+                                <div class="bg-light rounded p-2 max-width-75">
+                                    <strong>AI:</strong> ${escapeHtml(data.reply)}
+                                    <br><small class="text-muted">${data.timestamp}</small>
+                                </div>
+                            </div>
+                        </div>
+                    `);
+                    
+                    // 更新對話歷史
+                    chatHistory += `\nUser: ${msg}\nAI: ${data.reply}`;
+                } else {
+                    // 顯示錯誤訊息
+                    $("#chatBox").append(`
+                        <div class="mb-2">
+                            <div class="alert alert-danger">
+                                <strong>錯誤:</strong> ${escapeHtml(data.error)}
+                            </div>
+                        </div>
+                    `);
+                }
+            })
+            .fail(function() {
+                $("#chatBox").append(`
+                    <div class="mb-2">
+                        <div class="alert alert-danger">
+                            <strong>錯誤:</strong> 無法連接到伺服器
+                        </div>
+                    </div>
+                `);
+            })
+            .always(function() {
+                setLoading(false);
+                $("#chatBox").scrollTop($("#chatBox")[0].scrollHeight);
+            });
+    }
+
+    function setLoading(isLoading) {
+        if (isLoading) {
+            $("#sendBtn").prop("disabled", true);
+            $("#sendBtnText").addClass("d-none");
+            $("#sendBtnLoading").removeClass("d-none");
+        } else {
+            $("#sendBtn").prop("disabled", false);
+            $("#sendBtnText").removeClass("d-none");
+            $("#sendBtnLoading").addClass("d-none");
+        }
+    }
+
+    function escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+
+    // Enter 鍵發送訊息
+    $("#userInput").keypress(function(e) {
+        if (e.which == 13) {
+            sendMessage();
+        }
+    });
+</script>
+
+<style>
+    .max-width-75 {
+        max-width: 75%;
+    }
+</style>

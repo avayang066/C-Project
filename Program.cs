@@ -1,9 +1,11 @@
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
-// Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
+builder.Services.AddControllersWithViews(); // 加入 MVC 支援
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
+
+// 移除複雜的依賴注入設定，改用簡單的直接建立方式
 
 var app = builder.Build();
 
@@ -14,7 +16,18 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 
+// 聊天頁面: http://localhost:5000/Chat
+// 首頁: http://localhost:5000/Home
+// Swagger: http://localhost:5000/swagger
+
 app.UseHttpsRedirection();
+app.UseStaticFiles(); // 支援靜態檔案
+app.UseRouting(); // 啟用路由
+
+// 加入 MVC 路由
+app.MapControllerRoute(
+    name: "default",
+    pattern: "{controller=Home}/{action=Index}/{id?}");
 
 var summaries = new[]
 {
