@@ -1,11 +1,12 @@
 using System.Net.Http;
 using System.Text;
 using System.Text.Json;
+using MyApp.Models;
 
 namespace MyApp.Services
 {
     /// <summary>
-    /// 簡單的聊天服務 - 直接與 Ollama 通訊
+    /// 聊天服務 - 包含所有業務邏輯
     /// </summary>
     public class ChatService
     {
@@ -19,9 +20,63 @@ namespace MyApp.Services
         }
 
         /// <summary>
-        /// 發送訊息到 AI
+        /// 取得服務狀態 - 包含所有邏輯
         /// </summary>
-        public async Task<string> SendMessageAsync(string message, string history = "")
+        public async Task<ServiceStatus> GetServiceStatusAsync()
+        {
+            var isAvailable = await IsServiceAvailableAsync();
+            
+            return new ServiceStatus
+            {
+                IsAvailable = isAvailable,
+                Message = isAvailable ? "AI 服務正常運行中" : null,
+                ErrorMessage = isAvailable ? null : "AI 服務目前無法使用，請確認 Ollama 是否正在運行"
+            };
+        }
+
+        /// <summary>
+        /// 處理聊天請求 - 包含所有業務邏輯
+        /// </summary>
+        public async Task<ChatProcessResponse> ProcessChatAsync(string message, string history)
+        {
+            try
+            {
+                // 1. 驗證邏輯
+                if (string.IsNullOrWhiteSpace(message))
+                {
+                    return new ChatProcessResponse
+                    {
+                        Success = false,
+                        Error = "訊息不能為空"
+                    };
+                }
+
+                // 2. 呼叫 AI 服務
+                var reply = await SendMessageAsync(message, history);
+                
+                // 3. 成功回應處理
+                return new ChatProcessResponse
+                {
+                    Success = true,
+                    Reply = reply,
+                    Timestamp = DateTime.Now.ToString("HH:mm:ss")
+                };
+            }
+            catch (Exception ex)
+            {
+                // 4. 錯誤處理邏輯
+                return new ChatProcessResponse
+                {
+                    Success = false,
+                    Error = "處理您的訊息時發生錯誤：" + ex.Message
+                };
+            }
+        }
+
+        /// <summary>
+        /// 發送訊息到 AI (內部方法)
+        /// </summary>
+        private async Task<string> SendMessageAsync(string message, string history = "")
         {
             try
             {
@@ -63,9 +118,9 @@ namespace MyApp.Services
         }
 
         /// <summary>
-        /// 檢查服務是否可用
+        /// 檢查服務是否可用 (內部方法)
         /// </summary>
-        public async Task<bool> IsServiceAvailableAsync()
+        private async Task<bool> IsServiceAvailableAsync()
         {
             try
             {

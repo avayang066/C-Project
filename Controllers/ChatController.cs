@@ -1,10 +1,14 @@
 using Microsoft.AspNetCore.Mvc;
 using MyApp.Services;
 
+// http://localhost:5000/Chat
+// http://localhost:5000/Chat/Index
+// http://localhost:5000/Chat/SendMessage
+
 namespace MyApp.Controllers
 {
     /// <summary>
-    /// 聊天控制器 - 簡單直接的方式
+    /// 聊天控制器 - 純粹的 HTTP 處理
     /// </summary>
     public class ChatController : Controller
     {
@@ -12,63 +16,49 @@ namespace MyApp.Controllers
 
         public ChatController()
         {
-            // 直接建立服務，不用依賴注入
             _chatService = new ChatService();
         }
 
         // GET: /Chat - 顯示聊天頁面
         public async Task<IActionResult> Index()
         {
-            // 檢查 AI 服務是否可用
-            var isAvailable = await _chatService.IsServiceAvailableAsync();
-            ViewBag.ServiceAvailable = isAvailable;
-            
-            if (!isAvailable)
-            {
-                ViewBag.ErrorMessage = "AI 服務目前無法使用，請確認 Ollama 是否正在運行";
-            }
-            else
-            {
-                ViewBag.SuccessMessage = "AI 服務正常運行中";
-            }
-            
+            // 只負責取得狀態並傳遞給 View
+            var status = await _chatService.GetServiceStatusAsync();
+
+            ViewBag.ServiceAvailable = status.IsAvailable;
+            ViewBag.ErrorMessage = status.ErrorMessage;
+            ViewBag.SuccessMessage = status.Message;
+
             return View();
         }
 
         // POST: /Chat/SendMessage - 處理聊天訊息
+
+        // 路由測試須送的格式
+        // POST http://localhost:5000/Chat/SendMessage
+        // Content-Type: application/x-www-form-urlencoded
+        // message = 測試訊息 & history =
         [HttpPost]
         public async Task<IActionResult> SendMessage(string message, string history)
         {
-            try
-            {
-                // 簡單驗證
-                if (string.IsNullOrWhiteSpace(message))
-                {
-                    return Json(new { 
-                        success = false, 
-                        error = "訊息不能為空" 
-                    });
-                }
+            var debugInfo = new List<object>();
+            
+            // 只負責呼叫服務並回傳結果
+            var response = await _chatService.ProcessChatAsync(message, history);
 
-                // 呼叫服務取得 AI 回應
-                var reply = await _chatService.SendMessageAsync(message, history);
-                
-                // 回傳成功結果
-                return Json(new { 
-                    success = true, 
-                    reply = reply,
-                    timestamp = DateTime.Now.ToString("HH:mm:ss")
-                });
-            }
-            catch (Exception ex)
+            debugInfo.Add(new { stage = "input", message, history });
+
+            return Json(new
             {
-                // 簡單的錯誤處理
-                return Json(new { 
-                    success = false, 
-                    error = "處理您的訊息時發生錯誤：" + ex.Message
-                });
-            }
+                success = response.Success,
+                reply = response.Reply,
+                error = response.Error,
+                timestamp = response.Timestamp
+            });
+
+
         }
+
 
         // 釋放資源
         protected override void Dispose(bool disposing)

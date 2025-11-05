@@ -1,11 +1,15 @@
+using Microsoft.EntityFrameworkCore;
+using MyApp.Data;
+
 var builder = WebApplication.CreateBuilder(args);
 
-// Add services to the container.
+// 加入 Entity Framework DbContext
+builder.Services.AddDbContext<ApplicationDbContext>(options =>
+    options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
+
 builder.Services.AddControllersWithViews(); // 加入 MVC 支援
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
-
-// 移除複雜的依賴注入設定，改用簡單的直接建立方式
 
 var app = builder.Build();
 
@@ -19,10 +23,11 @@ if (app.Environment.IsDevelopment())
 // 聊天頁面: http://localhost:5000/Chat
 // 首頁: http://localhost:5000/Home
 // Swagger: http://localhost:5000/swagger
+// http://localhost:5000/weatherforecast
 
 app.UseHttpsRedirection();
 app.UseStaticFiles(); // 支援靜態檔案
-app.UseRouting(); // 啟用路由
+app.UseRouting();
 
 // 加入 MVC 路由
 app.MapControllerRoute(
@@ -33,9 +38,6 @@ var summaries = new[]
 {
     "Freezing", "Bracing", "Chilly", "Cool", "Mild", "Warm", "Balmy", "Hot", "Sweltering", "Scorching"
 };
-
-// http://localhost:5000/swagger/index.html
-// http://localhost:5000/weatherforecast
 
 app.MapGet("/weatherforecast", () =>
 {
