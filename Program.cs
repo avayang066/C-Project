@@ -1,11 +1,15 @@
 using Microsoft.EntityFrameworkCore;
 using MyApp.Data;
+using MyApp.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
 // 加入 Entity Framework DbContext
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
+
+// 註冊 ChatService
+builder.Services.AddScoped<ChatService>();
 
 builder.Services.AddControllersWithViews(); // 加入 MVC 支援
 builder.Services.AddEndpointsApiExplorer();

@@ -18,6 +18,7 @@ namespace MyApp.Models
         public bool Success { get; set; }
         public string? Reply { get; set; }
         public string? Error { get; set; }
+        public string? SessionId { get; set; }
         public string Timestamp { get; set; } = DateTime.Now.ToString("HH:mm:ss");
     }
 }

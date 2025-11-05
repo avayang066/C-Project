@@ -43,8 +43,6 @@
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.7.1/jquery.min.js"></script>
 <script>
-    let chatHistory = "";
-
     function sendMessage() {
         let msg = $("#userInput").val().trim();
         if (msg === "") {
@@ -67,10 +65,22 @@
         $("#userInput").val("");
         setLoading(true);
 
-        // 發送到後端
-        $.post("/Chat/SendMessage", { message: msg, history: chatHistory })
-            .done(function(data) {
+        // 發送到後端 (使用 JSON 格式)
+        $.ajax({
+            url: "/Chat/SendMessage",
+            type: "POST",
+            contentType: "application/json",
+            data: JSON.stringify({ 
+                message: msg, 
+                sessionId: sessionStorage.getItem('chatSessionId') || null 
+            }),
+            success: function(data) {
                 if (data.success) {
+                    // 儲存 sessionId
+                    if (data.sessionId) {
+                        sessionStorage.setItem('chatSessionId', data.sessionId);
+                    }
+                    
                     // 顯示 AI 回應
                     $("#chatBox").append(`
                         <div class="message assistant">
@@ -82,8 +92,8 @@
                         </div>
                     `);
                     
-                    // 更新對話歷史
-                    chatHistory += `\nUser: ${msg}\nAI: ${data.reply}`;
+                    // 更新對話歷史 (現在由後端管理，不需要前端維護)
+                    // chatHistory += `\nUser: ${msg}\nAI: ${data.reply}`;
                 } else {
                     // 顯示錯誤訊息
                     $("#chatBox").append(`
@@ -95,8 +105,11 @@
                         </div>
                     `);
                 }
-            })
-            .fail(function() {
+                setLoading(false);
+                $("#chatBox").scrollTop($("#chatBox")[0].scrollHeight);
+            },
+            error: function(xhr, status, error) {
+                console.error("AJAX 錯誤:", error);
                 $("#chatBox").append(`
                     <div class="message error">
                         <div class="message-content">
@@ -105,11 +118,10 @@
                         </div>
                     </div>
                 `);
-            })
-            .always(function() {
                 setLoading(false);
                 $("#chatBox").scrollTop($("#chatBox")[0].scrollHeight);
-            });
+            }
+        });
     }
 
     function setLoading(isLoading) {

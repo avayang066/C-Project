@@ -2,6 +2,8 @@ using System.Net.Http;
 using System.Text;
 using System.Text.Json;
 using MyApp.Models;
+using MyApp.Data;
+using Microsoft.EntityFrameworkCore;
 
 namespace MyApp.Services
 {
@@ -11,12 +13,14 @@ namespace MyApp.Services
     public class ChatService
     {
         private readonly HttpClient _httpClient;
+        private readonly ApplicationDbContext _dbContext;
 
-        public ChatService()
+        public ChatService(ApplicationDbContext dbContext)
         {
             _httpClient = new HttpClient();
             _httpClient.BaseAddress = new Uri("http://localhost:11434");
             _httpClient.Timeout = TimeSpan.FromMinutes(2);
+            _dbContext = dbContext;
         }
 
         /// <summary>
@@ -25,7 +29,7 @@ namespace MyApp.Services
         public async Task<ServiceStatus> GetServiceStatusAsync()
         {
             var isAvailable = await IsServiceAvailableAsync();
-            
+
             return new ServiceStatus
             {
                 IsAvailable = isAvailable,
@@ -35,9 +39,9 @@ namespace MyApp.Services
         }
 
         /// <summary>
-        /// 處理聊天請求 - 包含所有業務邏輯
+        /// 處理聊天請求 - 包含資料庫記錄
         /// </summary>
-        public async Task<ChatProcessResponse> ProcessChatAsync(string message, string history)
+        public async Task<ChatProcessResponse> ProcessChatAsync(string message, string? sessionId = null)
         {
             try
             {
@@ -51,14 +55,30 @@ namespace MyApp.Services
                     };
                 }
 
-                // 2. 呼叫 AI 服務
+                // 2. 取得或建立會話
+                var session = await GetOrCreateSessionAsync(sessionId);
+
+                // 3. 記錄用戶訊息
+                await SaveUserMessageAsync(session.SessionId, message);
+
+                // 4. 取得對話歷史
+                var history = await GetChatHistoryAsync(session.SessionId);
+
+                // 5. 呼叫 AI 服務
                 var reply = await SendMessageAsync(message, history);
-                
-                // 3. 成功回應處理
+
+                // 6. 記錄 AI 回應
+                await SaveAIMessageAsync(session.SessionId, reply);
+
+                // 7. 更新會話活動時間
+                await UpdateSessionActivityAsync(session.SessionId);
+
+                // 8. 成功回應處理
                 return new ChatProcessResponse
                 {
                     Success = true,
                     Reply = reply,
+                    SessionId = session.SessionId,
                     Timestamp = DateTime.Now.ToString("HH:mm:ss")
                 };
             }
@@ -89,13 +109,14 @@ namespace MyApp.Services
 
                 var jsonContent = JsonSerializer.Serialize(payload);
                 var content = new StringContent(jsonContent, Encoding.UTF8, "application/json");
-                
+
+                // 3. HTTP API 呼叫 (Ollama)
                 var response = await _httpClient.PostAsync("/api/generate", content);
                 response.EnsureSuccessStatusCode();
 
                 var jsonResponse = await response.Content.ReadAsStringAsync();
                 var doc = JsonDocument.Parse(jsonResponse);
-                
+
                 if (doc.RootElement.TryGetProperty("response", out var responseProperty))
                 {
                     return responseProperty.GetString() ?? "抱歉，AI 沒有回應";
@@ -151,6 +172,106 @@ namespace MyApp.Services
         public void Dispose()
         {
             _httpClient?.Dispose();
+        }
+
+        /// <summary>
+        /// 取得或建立聊天會話
+        /// </summary>
+        private async Task<ChatSession> GetOrCreateSessionAsync(string? sessionId)
+        {
+            if (!string.IsNullOrEmpty(sessionId))
+            {
+                // 1. 資料庫查詢
+                var existingSession = await _dbContext.ChatSessions
+                    .FirstOrDefaultAsync(s => s.SessionId == sessionId && s.IsActive);
+
+                if (existingSession != null)
+                {
+                    return existingSession;
+                }
+            }
+
+            // 建立新會話
+            var newSession = new ChatSession
+            {
+                SessionId = Guid.NewGuid().ToString(),
+                StartTime = DateTime.Now,
+                LastActivity = DateTime.Now,
+                IsActive = true
+            };
+
+            _dbContext.ChatSessions.Add(newSession);
+            // 2. 資料庫儲存
+            await _dbContext.SaveChangesAsync();
+
+            return newSession;
+        }
+
+        /// <summary>
+        /// 儲存用戶訊息
+        /// </summary>
+        private async Task SaveUserMessageAsync(string sessionId, string message)
+        {
+            var userMessage = new ChatMessage
+            {
+                Content = message,
+                Sender = "User",
+                Timestamp = DateTime.Now,
+                SessionId = sessionId
+            };
+
+            _dbContext.ChatMessages.Add(userMessage);
+            await _dbContext.SaveChangesAsync();
+        }
+
+        /// <summary>
+        /// 儲存 AI 回應
+        /// </summary>
+        private async Task SaveAIMessageAsync(string sessionId, string reply)
+        {
+            var aiMessage = new ChatMessage
+            {
+                Content = reply,
+                Sender = "AI",
+                Timestamp = DateTime.Now,
+                SessionId = sessionId
+            };
+
+            _dbContext.ChatMessages.Add(aiMessage);
+            await _dbContext.SaveChangesAsync();
+        }
+
+        /// <summary>
+        /// 取得聊天歷史
+        /// </summary>
+        private async Task<string> GetChatHistoryAsync(string sessionId)
+        {
+            var messages = await _dbContext.ChatMessages
+                .Where(m => m.SessionId == sessionId)
+                .OrderBy(m => m.Timestamp)
+                .Take(10) // 只取最近 10 則訊息
+                .ToListAsync();
+
+            if (!messages.Any())
+                return string.Empty;
+
+            var history = string.Join("\n", messages.Select(m => $"{m.Sender}: {m.Content}"));
+            return history;
+        }
+
+        /// <summary>
+        /// 更新會話活動時間
+        /// </summary>
+        private async Task UpdateSessionActivityAsync(string sessionId)
+        {
+            var session = await _dbContext.ChatSessions
+                .FirstOrDefaultAsync(s => s.SessionId == sessionId);
+
+            if (session != null)
+            {
+                session.LastActivity = DateTime.Now;
+                await _dbContext.SaveChangesAsync();
+            }
         }
     }
 }
