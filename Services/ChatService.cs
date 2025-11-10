@@ -4,31 +4,35 @@ using System.Text.Json;
 using MyApp.Models;
 using MyApp.Data;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 
 namespace MyApp.Services
 {
     /// <summary>
     /// 聊天服務 - 包含所有業務邏輯
     /// </summary>
-    public class ChatService
+    public class ChatService : IChatService
     {
         private readonly HttpClient _httpClient;
         private readonly ApplicationDbContext _dbContext;
+        private readonly ILogger<ChatService> _logger;
 
-        public ChatService(ApplicationDbContext dbContext)
+        public ChatService(ApplicationDbContext dbContext, ILogger<ChatService> logger)
         {
             _httpClient = new HttpClient();
             _httpClient.BaseAddress = new Uri("http://localhost:11434");
             _httpClient.Timeout = TimeSpan.FromMinutes(2);
             _dbContext = dbContext;
+            _logger = logger;
         }
 
         /// <summary>
         /// 取得服務狀態 - 包含所有邏輯
         /// </summary>
         public async Task<ServiceStatus> GetServiceStatusAsync()
-        {
+        {            
             var isAvailable = await IsServiceAvailableAsync();
+
 
             return new ServiceStatus
             {
@@ -45,6 +49,7 @@ namespace MyApp.Services
         {
             try
             {
+
                 // 1. 驗證邏輯
                 if (string.IsNullOrWhiteSpace(message))
                 {
@@ -57,15 +62,18 @@ namespace MyApp.Services
 
                 // 2. 取得或建立會話
                 var session = await GetOrCreateSessionAsync(sessionId);
+                _logger.LogDebug("使用會話: {SessionId}", session.SessionId);
 
                 // 3. 記錄用戶訊息
                 await SaveUserMessageAsync(session.SessionId, message);
 
                 // 4. 取得對話歷史
                 var history = await GetChatHistoryAsync(session.SessionId);
+                _logger.LogDebug("載入對話歷史，長度: {HistoryLength}", history.Length);
 
                 // 5. 呼叫 AI 服務
                 var reply = await SendMessageAsync(message, history);
+                _logger.LogInformation("AI 回應成功，長度: {ReplyLength}", reply.Length);
 
                 // 6. 記錄 AI 回應
                 await SaveAIMessageAsync(session.SessionId, reply);
@@ -84,6 +92,7 @@ namespace MyApp.Services
             }
             catch (Exception ex)
             {
+                // _logger.LogError(ex, "處理聊天請求時發生錯誤: {ErrorMessage}", ex.Message);
                 // 4. 錯誤處理邏輯
                 return new ChatProcessResponse
                 {
@@ -146,9 +155,10 @@ namespace MyApp.Services
             try
             {
                 var response = await _httpClient.GetAsync("/api/tags");
-                return response.IsSuccessStatusCode;
+                var isAvailable = response.IsSuccessStatusCode;
+                return isAvailable;
             }
-            catch
+            catch (Exception ex)
             {
                 return false;
             }

@@ -4,7 +4,7 @@
 
 <div class="chat-container">
     <div class="chat-header">
-        <h1>AI 助理</h1>
+        <h1>助理</h1>
         @if (!ViewBag.ServiceAvailable)
         {
             <div class="status-indicator offline">
@@ -26,7 +26,7 @@
             <div class="message-content">
                 <div class="avatar">AI</div>
                 <div class="text">
-                    歡迎使用智能聊天助理！請輸入您的問題...
+                    請輸入您的問題...
                 </div>
             </div>
         </div>
@@ -56,7 +56,7 @@
             <div class="message user">
                 <div class="message-content">
                     <div class="text">${escapeHtml(msg)}</div>
-                    <div class="avatar">您</div>
+                    <div class="avatar">You</div>
                 </div>
                 <div class="timestamp">${timestamp}</div>
             </div>

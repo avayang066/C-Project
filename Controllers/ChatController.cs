@@ -15,9 +15,9 @@ namespace MyApp.Controllers
     /// </summary>
     public class ChatController : Controller
     {
-        private readonly ChatService _chatService;
+        private readonly IChatService _chatService;
 
-        public ChatController(ChatService chatService)
+        public ChatController(IChatService chatService)
         {
             _chatService = chatService;
         }
@@ -25,10 +25,16 @@ namespace MyApp.Controllers
         // GET: /Chat - 顯示聊天頁面
         public async Task<IActionResult> Index()
         {
+            var requestTime = DateTime.Now.ToString("HH:mm:ss.fff");
+            var randomNum = new Random().Next(1000, 9999); // 每次都不同
+
+            Console.WriteLine($"📱 [{requestTime}] === ChatController.Index() 被呼叫 - 有人訪問聊天頁面！ (隨機號: {randomNum})");
+            
             // 使用 Extension Method 簡化狀態處理
             var status = await _chatService.GetServiceStatusAsync();
             status.ToViewBag(this);
             
+            Console.WriteLine($"🏁 [{DateTime.Now:HH:mm:ss.fff}] === ChatController.Index() 完成 (隨機號: {randomNum})");
             return View();
         }
 
@@ -40,14 +46,24 @@ namespace MyApp.Controllers
         [HttpPost]
         public async Task<IActionResult> SendMessage([FromBody] ChatRequest request)
         {
+            var requestTime = DateTime.Now.ToString("HH:mm:ss.fff");
+            Console.WriteLine($"💬 [{requestTime}] 收到聊天請求: {request?.Message}");
+            
             // 使用 Extension Method 驗證請求
             var validationError = request.ValidateRequest();
-            if (validationError != null) return validationError;
+            if (validationError != null) 
+            {
+                // Console.WriteLine($"❌ [{DateTime.Now:HH:mm:ss.fff}] 驗證失敗");
+                return validationError;
+            }
 
+            
             // 使用 Extension Method 處理回應，支援會話管理
-            return await _chatService
-                .ProcessChatAsync(request.Message, request.SessionId)
+            var result = await _chatService
+                .ProcessChatAsync(request!.Message, request.SessionId)
                 .ToJsonResponse();
+                
+            return result;
         }
 
 

@@ -4,12 +4,18 @@ using MyApp.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// 設定 Logging
+builder.Logging.ClearProviders();
+builder.Logging.AddConsole();
+builder.Logging.AddDebug();
+builder.Logging.SetMinimumLevel(LogLevel.Debug); // 開發時顯示詳細日誌
+
 // 加入 Entity Framework DbContext
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
 
-// 註冊 ChatService
-builder.Services.AddScoped<ChatService>();
+// 註冊 ChatService 介面和實作
+builder.Services.AddScoped<IChatService, ChatService>();
 
 builder.Services.AddControllersWithViews(); // 加入 MVC 支援
 builder.Services.AddEndpointsApiExplorer();
@@ -45,7 +51,7 @@ var summaries = new[]
 
 app.MapGet("/weatherforecast", () =>
 {
-    var forecast =  Enumerable.Range(1, 5).Select(index =>
+    var forecast = Enumerable.Range(1, 5).Select(index =>
         new WeatherForecast
         (
             DateOnly.FromDateTime(DateTime.Now.AddDays(index)),

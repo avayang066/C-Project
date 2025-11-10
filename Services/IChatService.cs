@@ -8,31 +8,22 @@ namespace MyApp.Services
     public interface IChatService
     {
         /// <summary>
-        /// 處理聊天請求
-        /// </summary>
-        /// <param name="request">聊天請求</param>
-        /// <returns>聊天回應</returns>
-        Task<ChatResponse> ProcessChatAsync(ChatRequest request);
-        
-        /// <summary>
-        /// 檢查 AI 服務是否可用
+        /// 取得服務狀態
         /// </summary>
         /// <returns>服務狀態</returns>
-        Task<bool> IsServiceAvailableAsync();
-        
+        Task<ServiceStatus> GetServiceStatusAsync();
+
         /// <summary>
-        /// 取得聊天會話
+        /// 處理聊天請求
         /// </summary>
+        /// <param name="message">使用者訊息</param>
         /// <param name="sessionId">會話ID</param>
-        /// <returns>聊天會話</returns>
-        Task<ChatSession?> GetSessionAsync(string sessionId);
-        
+        /// <returns>聊天處理回應</returns>
+        Task<ChatProcessResponse> ProcessChatAsync(string message, string? sessionId = null);
+
         /// <summary>
-        /// 儲存聊天訊息
+        /// 釋放資源
         /// </summary>
-        /// <param name="sessionId">會話ID</param>
-        /// <param name="message">訊息</param>
-        /// <returns>儲存的訊息</returns>
-        Task<ChatMessage> SaveMessageAsync(string sessionId, ChatMessage message);
+        void Dispose();
     }
 }
